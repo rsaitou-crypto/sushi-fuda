@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}*{box-sizing:border-box}</style>
+</head>
+<body>
+<title>おすし札引き</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap">
+<style>
+/* Layout: 1画面アプリ。中央に木札（縦書き＋ネタの絵）、下に「札を引く」ボタン、その下に今日食べたもの */
+:root{
+  --bg:#eef0ec;
+  --panel:#ffffff;
+  --ink:#1d2320;
+  --muted:#6a716c;
+  --wood:#e6cfa3;
+  --wood-edge:#b8925a;
+  --wood-ink:#20160c;
+  --accent:#1f5f4a;
+  --accent-ink:#ffffff;
+  --line:#d5d9d3;
+  --c-aka:#b8322a; --c-shiro:#6d8fa8; --c-hikari:#4f6b78; --c-kai:#a67a3a;
+  --c-ebi:#d86a3c; --c-gunkan:#2e4a3a; --c-maki:#3b3b3b; --c-kawari:#8a5aa8; --c-side:#4d7a3a; --c-fun:#c98a1e;
+  --f-brush:"Yuji Syuku","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141917; --panel:#1d2421; --ink:#e9ece8; --muted:#9aa39d; --line:#2f3934;
+  --wood:#d9bf8e; --wood-edge:#9c7845; --accent:#4fae8c; --accent-ink:#0d1512; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#141917; --panel:#1d2421; --ink:#e9ece8; --muted:#9aa39d; --line:#2f3934;
+  --wood:#d9bf8e; --wood-edge:#9c7845; --accent:#4fae8c; --accent-ink:#0d1512; color-scheme:dark }
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));}
+.app{max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:18px;padding-block:14px 32px}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+h1{font-family:var(--f-brush);font-size:26px;margin:0;font-weight:400;letter-spacing:.06em}
+.iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;
+  padding:8px 14px;font:inherit;font-size:13px;cursor:pointer}
+.iconbtn:focus-visible,.draw:focus-visible,.chip:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* 木札 */
+.stage{display:flex;justify-content:center;perspective:900px;min-height:380px;align-items:center}
+.fuda{width:170px;height:364px;position:relative;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+.fuda.flip{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:6px;
+  background:
+    repeating-linear-gradient(90deg,rgba(120,80,30,.07) 0 2px,transparent 2px 9px),
+    linear-gradient(180deg,var(--wood),color-mix(in srgb,var(--wood) 85%,var(--wood-edge)));
+  border:2px solid var(--wood-edge);box-shadow:0 10px 24px rgba(0,0,0,.18);
+  display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 0 14px;color:var(--wood-ink)}
+.face::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--wood-edge);opacity:.7;flex:none}
+.back{justify-content:center}
+.back .mark{font-family:var(--f-brush);font-size:44px;writing-mode:vertical-rl;letter-spacing:.2em;margin-top:-18px}
+.front{transform:rotateY(180deg)}
+.front .name{font-family:var(--f-brush);writing-mode:vertical-rl;font-size:38px;line-height:1;letter-spacing:.06em;
+  flex:1;min-height:0;display:flex;align-items:center;white-space:nowrap}
+.front .name.long{font-size:31px}
+.front .name.xlong{font-size:25px}
+.front .art{width:136px;height:91px;flex:none;display:flex;align-items:center;justify-content:center}
+.front .art svg{width:100%;height:100%;display:block;filter:drop-shadow(0 2px 1px rgba(60,30,0,.18))}
+.front .cat{font-size:11px;font-weight:700;color:#fff;padding:3px 8px;border-radius:3px;letter-spacing:.08em;flex:none}
+
+.result{text-align:center;min-height:44px;display:flex;flex-direction:column;gap:2px}
+.result .big{font-size:17px;font-weight:700}
+.result .sub{font-size:13px;color:var(--muted)}
+
+.draw{width:100%;border:0;border-radius:14px;padding:18px;font-family:var(--f-brush);font-size:24px;
+  background:var(--accent);color:var(--accent-ink);cursor:pointer;letter-spacing:.15em;box-shadow:0 4px 0 color-mix(in srgb,var(--accent) 60%,#000)}
+.draw:active{transform:translateY(2px);box-shadow:0 2px 0 color-mix(in srgb,var(--accent) 60%,#000)}
+.draw:disabled{opacity:.5}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.panel h2{font-size:13px;margin:0;color:var(--muted);font-weight:700;letter-spacing:.08em;display:flex;justify-content:space-between}
+.hist{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;font-variant-numeric:tabular-nums}
+.hist li{display:flex;align-items:center;gap:10px}
+.hist .n{color:var(--muted);width:2.8em;font-size:12px}
+.hist .dot{width:8px;height:8px;border-radius:2px;flex:none}
+.empty{color:var(--muted);font-size:13px}
+.linkbtn{background:none;border:0;color:var(--muted);font:inherit;font-size:12px;text-decoration:underline;cursor:pointer}
+
+/* 設定シート */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet-in{background:var(--panel);width:100%;max-width:480px;border-radius:16px 16px 0 0;max-height:85%;overflow:auto;
+  padding:18px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:16px}
+.sheet h3{margin:0;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.chip .dot{width:8px;height:8px;border-radius:2px}
+.note{font-size:12px;color:var(--muted);margin:0}
+.items{font-size:12px;color:var(--muted);line-height:1.7}
+@media (prefers-reduced-motion:reduce){.fuda{transition:none}}
+</style>
+
+<div class="app">
+  <header>
+    <h1>おすし札引き</h1>
+    <button class="iconbtn" id="openSettings">札の設定</button>
+  </header>
+
+  <div class="stage">
+    <div class="fuda" id="fuda" aria-live="polite">
+      <div class="face back"><div class="mark">御品書</div></div>
+      <div class="face front"><div class="name" id="fName">中トロ</div><div class="art" id="fArt"></div><div class="cat" id="fCat">赤身</div></div>
+    </div>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <button class="draw" id="draw">札を引く</button>
+  <p class="note" id="left" style="text-align:center;margin-top:-8px"></p>
+
+  <section class="panel">
+    <h2><span>今日食べたもの <span id="count"></span></span><button class="linkbtn" id="reset">リセット</button></h2>
+    <div class="chips" id="resetBox" hidden style="justify-content:flex-end">
+      <span class="note" style="align-self:center">記録を消して山札を戻しますか？</span>
+      <button class="chip" id="resetNo">やめる</button>
+      <button class="chip" id="resetYes" aria-pressed="true">戻す</button>
+    </div>
+    <ul class="hist" id="hist"></ul>
+  </section>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-in" role="dialog" aria-label="札の設定">
+    <h3>札に入れるジャンル</h3>
+    <div class="chips" id="cats"></div>
+    <p class="note" id="poolInfo"></p>
+    <div class="items" id="items"></div>
+    <button class="draw" id="closeSettings" style="font-size:18px;padding:14px">閉じる</button>
+  </div>
+</div>
+
+<script>
+/* ===== 絵（SVG）を描く部品 ===== */
+let uid=0;
+const svg = s => `<svg viewBox="0 0 120 80" aria-hidden="true">${s}</svg>`;
+const NORI="#1f2b24", RICE_C="#fbf8ef";
+const GRAINS=[[28,60],[44,63],[62,61],[80,63],[92,57],[36,52],[70,54],[54,57]];
+const RICE = `<rect x="16" y="40" width="88" height="29" rx="13" fill="${RICE_C}" stroke="#cfc6ae" stroke-width="1.5"/><g fill="#e6dfcc">${GRAINS.map(([x,y])=>`<ellipse cx="${x}" cy="${y}" rx="3" ry="1.6"/>`).join("")}</g>`;
+const NETA = "M10 44 C10 30 30 24 60 24 C92 24 112 30 110 44 C108 51 94 53 60 53 C26 53 12 51 10 44 Z";
+
+function nigiri(o){
+  const id="c"+(uid++);
+  let s=RICE+`<defs><clipPath id="${id}"><path d="${NETA}"/></clipPath></defs><path d="${NETA}" fill="${o.c}"/><g clip-path="url(#${id})">`;
+  if(o.sheen) s+=`<rect x="0" y="20" width="120" height="16" fill="${o.sheen}"/><rect x="0" y="34" width="120" height="3" fill="#eef3f6" opacity=".85"/>`;
+  if(o.zebra) for(let i=0;i<7;i++) s+=`<path d="M${14+i*14} 22 q5 8 0 16" stroke="${o.zebra}" stroke-width="3" fill="none"/>`;
+  if(o.edge) s+=`<rect x="0" y="20" width="120" height="7" fill="${o.edge}"/>`;
+  if(o.tip) s+=`<rect x="88" y="20" width="32" height="40" fill="${o.tip}"/>`;
+  if(o.layers) for(let i=0;i<3;i++) s+=`<rect x="0" y="${31+i*7}" width="120" height="1.4" fill="#e0a920"/>`;
+  if(o.stripes) for(let i=0;i<o.stripes;i++){const x=16+i*(84/o.stripes);s+=`<path d="M${x} 24 L${x+14} 54" stroke="#fff" stroke-opacity=".55" stroke-width="2.2"/>`}
+  if(o.score) for(let i=0;i<6;i++) s+=`<path d="M${24+i*14} 26 l-6 26" stroke="#d6d1c7" stroke-width="1.3"/>`;
+  if(o.spots) for(const [x,y] of [[24,32],[40,30],[58,33],[76,30],[92,34],[32,40],[66,40],[86,42]]) s+=`<circle cx="${x}" cy="${y}" r="1.7" fill="${o.spots}"/>`;
+  if(o.suckers){ s+=`<rect x="0" y="40" width="120" height="16" fill="${o.suckers}"/>`; for(let i=0;i<6;i++) s+=`<circle cx="${22+i*15}" cy="47" r="3" fill="#f3d7d2" stroke="${o.suckers}"/>`;}
+  if(o.aburi) for(const [x,y,r] of [[30,32,7],[56,30,9],[84,34,7],[70,42,5]]) s+=`<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r*.6}" fill="#5a2a10" opacity=".38"/>`;
+  if(o.glaze) s+=`<rect x="0" y="20" width="120" height="40" fill="#3a1a08" opacity=".22"/><path d="M24 31 Q60 25 96 31" stroke="#fff" stroke-opacity=".55" stroke-width="2" fill="none"/>`;
+  s+=`</g><path d="${NETA}" fill="none" stroke="rgba(0,0,0,.22)" stroke-width="1.2"/>`;
+  if(o.top) s+=o.top;
+  if(o.band) s+=`<rect x="52" y="21" width="16" height="49" rx="2" fill="${NORI}"/>`;
+  if(o.mayo) s+=`<path d="M24 36 l7 -5 l7 5 l7 -5 l7 5 l7 -5 l7 5 l7 -5 l7 5 l7 -5" stroke="#fff6d8" stroke-width="2.4" fill="none" stroke-linejoin="round"/>`;
+  return svg(s);
+}
+const GARNISH = `<circle cx="60" cy="31" r="5.5" fill="#efdfae"/><circle cx="57" cy="29" r="2" fill="#5f9e45"/><circle cx="62" cy="30" r="1.6" fill="#5f9e45"/>`;
+
+function shrimp(c,band,big){
+  const id="c"+(uid++), y=big?-3:0;
+  const body=`M8 ${41+y} C8 ${28+y} 28 ${23+y} 52 ${25+y} C76 ${27+y} 92 ${29+y} 96 ${38+y} C92 ${49+y} 72 ${54-y} 52 ${54-y} C28 ${54-y} 8 ${51-y} 8 ${41+y} Z`;
+  let s=RICE+`<defs><clipPath id="${id}"><path d="${body}"/></clipPath></defs>`+
+    `<path d="M93 39 L115 25 L110 40 L115 55 Z" fill="#d8371f" stroke="#a8240f" stroke-width="1"/>`+
+    `<path d="${body}" fill="${c}"/><g clip-path="url(#${id})">`;
+  for(let i=0;i<6;i++) s+=`<rect x="${16+i*13}" y="10" width="5" height="60" fill="${band}" opacity=".75"/>`;
+  return svg(s+`</g><path d="${body}" fill="none" stroke="rgba(0,0,0,.2)" stroke-width="1.2"/>`);
+}
+
+function gunkan(top){
+  return svg(`<rect x="22" y="32" width="76" height="38" rx="5" fill="${NORI}"/><rect x="22" y="45" width="76" height="1.6" fill="#344a3d"/><rect x="22" y="58" width="76" height="1.6" fill="#344a3d"/>`+top);
+}
+const mound = c => `<path d="M24 35 C26 13 94 13 96 35 Z" fill="${c}" stroke="rgba(0,0,0,.18)"/>`;
+const sprinkle = (pts,fn) => pts.map(fn).join("");
+const MPTS=[[36,30],[46,24],[58,21],[70,23],[82,28],[52,31],[66,30],[40,32],[76,32],[60,27],[88,32],[32,33]];
+const G = {
+  ikura: gunkan(sprinkle([[30,32],[40,32],[50,32],[60,32],[70,32],[80,32],[90,32],[35,24],[45,23],[55,22],[65,22],[75,23],[85,24],[50,15],[62,15],[72,17]],
+    ([x,y])=>`<circle cx="${x}" cy="${y}" r="5.4" fill="#f2581c" stroke="#bf3a0a" stroke-width=".8"/><circle cx="${x-1.8}" cy="${y-1.8}" r="1.5" fill="#fff" opacity=".85"/>`)),
+  uni: gunkan(sprinkle([[30,30],[40,26],[50,24],[60,23],[70,24],[80,26],[90,30],[36,33],[48,32],[60,31],[72,32],[84,33]],
+    ([x,y])=>`<ellipse cx="${x}" cy="${y}" rx="7.5" ry="5" fill="#f3a43a" stroke="#d07e18" stroke-width=".8"/>`)),
+  negitoro: gunkan(mound("#f0a0a8")+sprinkle(MPTS,([x,y])=>`<circle cx="${x}" cy="${y}" r="2" fill="#4f9a3c"/>`)),
+  kanimiso: gunkan(mound("#9a7a3a")+sprinkle(MPTS.slice(0,6),([x,y])=>`<ellipse cx="${x}" cy="${y}" rx="3" ry="1.5" fill="#c3a25e"/>`)),
+  shirasu: gunkan(mound("#f4f1e8")+sprinkle(MPTS,([x,y],i)=>`<path d="M${x-5} ${y} q5 -${2+i%3} 10 0" stroke="#b7b1a2" stroke-width="1.2" fill="none"/><circle cx="${x+5}" cy="${y}" r=".9" fill="#333"/>`)),
+  tunamayo: gunkan(mound("#efe0bd")+sprinkle(MPTS,([x,y])=>`<ellipse cx="${x}" cy="${y}" rx="2.6" ry="1.4" fill="#d6c294"/>`)),
+  corn: gunkan(mound("#f6ecc8")+sprinkle(MPTS.concat([[44,17],[56,15],[68,16],[78,20]]),([x,y])=>`<circle cx="${x}" cy="${y}" r="3.2" fill="#f2c230" stroke="#d29e12" stroke-width=".6"/>`)),
+  natto: gunkan(mound("#8a6a3a")+sprinkle(MPTS,([x,y])=>`<ellipse cx="${x}" cy="${y}" rx="3.6" ry="2.6" fill="#c49a5a" stroke="#6b4e24" stroke-width=".8"/>`)+`<path d="M40 22 q20 -8 40 4" stroke="#f3ecd8" stroke-width="1" fill="none" opacity=".8"/>`),
+};
+
+function maki(inner){
+  const p=(cx,cy)=>`<circle cx="${cx}" cy="${cy}" r="22" fill="${NORI}"/><circle cx="${cx}" cy="${cy}" r="18.5" fill="${RICE_C}"/>${sprinkle([[-10,-6],[8,-10],[11,7],[-8,10]],([dx,dy])=>`<ellipse cx="${cx+dx}" cy="${cy+dy}" rx="2.6" ry="1.4" fill="#e6dfcc"/>`)}${inner(cx,cy)}`;
+  return svg(p(38,44)+p(82,48));
+}
+const MAKI = {
+  tekka: maki((x,y)=>`<rect x="${x-7}" y="${y-7}" width="14" height="14" rx="2" fill="#b8202a"/>`),
+  kappa: maki((x,y)=>`<circle cx="${x}" cy="${y}" r="7.5" fill="#4f8a32"/><circle cx="${x}" cy="${y}" r="4.5" fill="#d4ebb0"/>`),
+  kanpyo: maki((x,y)=>`<circle cx="${x}" cy="${y}" r="7" fill="#a8743a"/><path d="M${x-5} ${y} h10 M${x} ${y-5} v10" stroke="#7a4f22" stroke-width="1.2"/>`),
+  negitoro: maki((x,y)=>`<circle cx="${x}" cy="${y}" r="8" fill="#f0a0a8"/><circle cx="${x-3}" cy="${y-2}" r="1.6" fill="#4f9a3c"/><circle cx="${x+3}" cy="${y+2}" r="1.6" fill="#4f9a3c"/>`),
+  salad: maki((x,y)=>`<rect x="${x-9}" y="${y-6}" width="8" height="6" fill="#f2c230"/><rect x="${x}" y="${y-7}" width="9" height="6" fill="#6aa84f"/><rect x="${x-7}" y="${y+1}" width="14" height="6" fill="#ef8a5a"/>`),
+};
+
+const SIDE = {
+  gari: svg(`<ellipse cx="60" cy="64" rx="44" ry="9" fill="#e6e1d6" stroke="#c9c1b0"/>`+
+    sprinkle([[44,54,-20],[62,52,15],[78,56,-8],[52,44,30],[70,42,-25],[60,34,5]],([x,y,r])=>`<ellipse cx="${x}" cy="${y}" rx="15" ry="6.5" transform="rotate(${r} ${x} ${y})" fill="#f7c6c6" stroke="#e48f96" stroke-width="1"/>`)),
+  tea: svg(`<path d="M50 14 q-5 -5 0 -11 M62 13 q-5 -5 0 -11 M74 14 q-5 -5 0 -11" stroke="#a89a7c" stroke-width="1.5" fill="none" opacity=".7"/>`+
+    `<path d="M36 19 L84 19 L80 71 Q60 76 40 71 Z" fill="#e7dcc4" stroke="#a8956c" stroke-width="1.5"/><ellipse cx="60" cy="19" rx="24" ry="5" fill="#8fae3e" stroke="#a8956c" stroke-width="1.5"/>`+
+    `<text x="60" y="56" text-anchor="middle" font-size="22" fill="#4f5f2a" font-family="Yuji Syuku, serif">茶</text>`),
+  miso: svg(`<path d="M16 34 Q60 96 104 34 Z" fill="#7a1f17" stroke="#4a110c" stroke-width="1.5"/><ellipse cx="60" cy="34" rx="44" ry="10" fill="#b98545" stroke="#4a110c" stroke-width="1.5"/>`+
+    `<rect x="40" y="30" width="7" height="7" fill="#fbf8ef"/><rect x="66" y="33" width="7" height="7" fill="#fbf8ef"/><path d="M52 34 q6 -6 12 0" stroke="#2f5a2a" stroke-width="3" fill="none"/>`+
+    sprinkle([[34,35],[58,29],[78,30],[86,36]],([x,y])=>`<circle cx="${x}" cy="${y}" r="2.2" fill="#5f9e45"/>`)),
+  ara: svg(`<path d="M16 34 Q60 96 104 34 Z" fill="#1f1a18" stroke="#000" stroke-width="1.5"/><ellipse cx="60" cy="34" rx="44" ry="10" fill="#c49a62" stroke="#000" stroke-width="1.5"/>`+
+    `<path d="M36 34 q10 -8 20 0 z" fill="#e9c9b8" stroke="#a8826a"/><path d="M62 36 q10 -9 22 -1 z" fill="#d9b8a6" stroke="#a8826a"/><path d="M48 30 l26 0 M52 27 l0 6 M58 27 l0 6 M64 27 l0 6 M70 27 l0 6" stroke="#f3eee6" stroke-width="1.4"/>`+
+    sprinkle([[30,35],[86,34],[56,38]],([x,y])=>`<circle cx="${x}" cy="${y}" r="2" fill="#5f9e45"/>`)),
+  chawan: svg(`<path d="M32 42 L88 42 L84 71 Q60 76 36 71 Z" fill="#efe6cf" stroke="#a8956c" stroke-width="1.5"/><rect x="34" y="52" width="52" height="5" fill="#3c5a8a" opacity=".85"/>`+
+    `<path d="M28 42 Q60 12 92 42 Z" fill="#e8dcc0" stroke="#a8956c" stroke-width="1.5"/><circle cx="60" cy="24" r="4.5" fill="#a8956c"/>`),
+  inari: svg(`<path d="M16 62 C12 40 30 26 60 26 C90 26 108 40 104 62 C100 71 20 71 16 62 Z" fill="#c8893a" stroke="#8a5a20" stroke-width="1.5"/>`+
+    sprinkle([[32,46],[46,38],[60,44],[74,38],[88,46],[40,58],[56,56],[72,58],[84,56]],([x,y])=>`<circle cx="${x}" cy="${y}" r="2" fill="#a86e28"/>`)+`<path d="M28 36 Q60 28 92 36" stroke="#e9b878" stroke-width="2" fill="none" opacity=".7"/>`),
+};
+
+const FUN = {
+  star: svg(`<path d="M60 6 L70 30 L96 32 L76 49 L83 75 L60 61 L37 75 L44 49 L24 32 L50 30 Z" fill="#e9b52f" stroke="#a87a10" stroke-width="2" stroke-linejoin="round"/><circle cx="60" cy="42" r="5" fill="#fff6d8"/>`),
+  more: svg(`<rect x="30" y="14" width="30" height="56" rx="3" fill="#f0dcb4" stroke="#8a6a3a" stroke-width="1.5" transform="rotate(-10 45 42)"/><rect x="58" y="12" width="30" height="56" rx="3" fill="#f0dcb4" stroke="#8a6a3a" stroke-width="1.5" transform="rotate(10 73 40)"/>`+
+    `<text x="74" y="50" text-anchor="middle" font-size="20" font-weight="700" fill="#c98a1e" font-family="sans-serif" transform="rotate(10 74 44)">+1</text>`),
+  swap: svg(`<path d="M22 30 H92 M80 18 L92 30 L80 42" stroke="#c98a1e" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M98 54 H28 M40 42 L28 54 L40 66" stroke="#8a6a3a" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`),
+  next: svg(`<path d="M10 22 L84 40 M10 60 L84 46" stroke="#8a5a20" stroke-width="4.5" stroke-linecap="round"/><rect x="84" y="34" width="26" height="18" rx="8" fill="${RICE_C}" stroke="#cfc6ae"/><path d="M82 36 Q97 26 112 36 Q97 42 82 36 Z" fill="#e0606a"/>`),
+};
+
+/* ===== 札のデータ ===== */
+const CATS = {
+  aka:{label:"赤身",color:"var(--c-aka)"},
+  shiro:{label:"白身",color:"var(--c-shiro)"},
+  hikari:{label:"光物",color:"var(--c-hikari)"},
+  kai:{label:"貝",color:"var(--c-kai)"},
+  ebi:{label:"えび・いか・たこ",color:"var(--c-ebi)"},
+  gunkan:{label:"軍艦",color:"var(--c-gunkan)"},
+  maki:{label:"巻物",color:"var(--c-maki)"},
+  kawari:{label:"玉子・変わり種",color:"var(--c-kawari)"},
+  side:{label:"サイド",color:"var(--c-side)"},
+  fun:{label:"お楽しみ",color:"var(--c-fun)"},
+};
+const CARDS = [
+  ["赤身","aka",()=>nigiri({c:"#b8202a"})],
+  ["中トロ","aka",()=>nigiri({c:"#e0606a",stripes:4})],
+  ["大トロ","aka",()=>nigiri({c:"#f2a3a6",stripes:7})],
+  ["サーモン","aka",()=>nigiri({c:"#f4874b",stripes:5})],
+  ["炙りサーモン","aka",()=>nigiri({c:"#f08a4b",stripes:5,aburi:true,mayo:true})],
+  ["びんちょう","aka",()=>nigiri({c:"#f4cfc6",top:GARNISH})],
+  ["かつお","aka",()=>nigiri({c:"#9c2430",edge:"#5f6f7a",top:GARNISH})],
+  ["はまち","shiro",()=>nigiri({c:"#f3d2c4",edge:"#b8404a"})],
+  ["ぶり","shiro",()=>nigiri({c:"#f6dccf",edge:"#a83440",stripes:2})],
+  ["かんぱち","shiro",()=>nigiri({c:"#f6e4d8",edge:"#c86a6a"})],
+  ["真鯛","shiro",()=>nigiri({c:"#fbeee8",edge:"#e07a7a",stripes:3})],
+  ["ひらめ","shiro",()=>nigiri({c:"#f4f1ec",score:true})],
+  ["えんがわ","shiro",()=>nigiri({c:"#f1e3c8",stripes:8})],
+  ["すずき","shiro",()=>nigiri({c:"#f6f1ea",edge:"#9aa4a8"})],
+  ["あじ","hikari",()=>nigiri({c:"#e8c4bc",sheen:"#7c95a4",top:GARNISH})],
+  ["いわし","hikari",()=>nigiri({c:"#d9a8a0",sheen:"#4f6878",top:GARNISH})],
+  ["しめさば","hikari",()=>nigiri({c:"#ecd8cc",sheen:"#a9bcc6",zebra:"#3d5a73"})],
+  ["こはだ","hikari",()=>nigiri({c:"#efe2d6",sheen:"#b8c4ca",spots:"#3a4a55"})],
+  ["さんま","hikari",()=>nigiri({c:"#d9a89a",sheen:"#5a6f80",top:GARNISH})],
+  ["ほたて","kai",()=>nigiri({c:"#f6ecd8",stripes:2})],
+  ["赤貝","kai",()=>nigiri({c:"#e8603c",score:true})],
+  ["つぶ貝","kai",()=>nigiri({c:"#efe6d6",edge:"#8a7a66"})],
+  ["ほっき貝","kai",()=>nigiri({c:"#f6ece2",tip:"#e8806a"})],
+  ["みる貝","kai",()=>nigiri({c:"#f0e2cc",tip:"#8a6a4a"})],
+  ["えび","ebi",()=>shrimp("#fff3ea","#e2412a")],
+  ["甘えび","ebi",()=>shrimp("#f7bdb3","#f48a7a")],
+  ["ボタンえび","ebi",()=>shrimp("#f39a8a","#e2412a",true)],
+  ["いか","ebi",()=>nigiri({c:"#f5f3ee",score:true})],
+  ["たこ","ebi",()=>nigiri({c:"#f6ece8",suckers:"#8e2a3c"})],
+  ["やりいか","ebi",()=>nigiri({c:"#f2f0ea",score:true,top:`<circle cx="60" cy="30" r="2.5" fill="#5f9e45"/>`})],
+  ["うに","gunkan",()=>G.uni],
+  ["いくら","gunkan",()=>G.ikura],
+  ["ねぎとろ","gunkan",()=>G.negitoro],
+  ["かにみそ","gunkan",()=>G.kanimiso],
+  ["しらす","gunkan",()=>G.shirasu],
+  ["ツナマヨ","gunkan",()=>G.tunamayo],
+  ["コーン","gunkan",()=>G.corn],
+  ["納豆","gunkan",()=>G.natto],
+  ["鉄火巻","maki",()=>MAKI.tekka],
+  ["かっぱ巻","maki",()=>MAKI.kappa],
+  ["かんぴょう巻","maki",()=>MAKI.kanpyo],
+  ["ねぎとろ巻","maki",()=>MAKI.negitoro],
+  ["サラダ巻","maki",()=>MAKI.salad],
+  ["玉子","kawari",()=>nigiri({c:"#f5c842",layers:true,band:true})],
+  ["穴子","kawari",()=>nigiri({c:"#c49060",glaze:true})],
+  ["うなぎ","kawari",()=>nigiri({c:"#7a4a22",glaze:true})],
+  ["えびアボカド","kawari",()=>nigiri({c:"#9cc25a",top:`<path d="M28 31 C40 22 80 22 92 31 C80 37 40 37 28 31 Z" fill="#fff0e4" stroke="#e2412a" stroke-width="1.5"/>`,mayo:true})],
+  ["ハンバーグ","kawari",()=>nigiri({c:"#6b3e22",glaze:true,mayo:true})],
+  ["いなり","kawari",()=>SIDE.inari],
+  ["がり","side",()=>SIDE.gari],
+  ["お茶","side",()=>SIDE.tea],
+  ["味噌汁","side",()=>SIDE.miso],
+  ["あら汁","side",()=>SIDE.ara],
+  ["茶碗蒸し","side",()=>SIDE.chawan],
+  ["好きなネタ","fun",()=>FUN.star,"好きなネタを1つ注文できます"],
+  ["もう一枚","fun",()=>FUN.more,"もう1枚引けます。続けてボタンを押してください"],
+  ["隣と交換","fun",()=>FUN.swap,"隣の人が最後に引いた札と交換します"],
+  ["次の人が食べる","fun",()=>FUN.next,"次に注文するネタは、隣の人が食べます"],
+].map(([name,cat,art,desc])=>({name,cat,art,desc}));
+
+/* ===== アプリ本体 ===== */
+const store = {
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+let enabled = store.get("sushi.cats", Object.keys(CATS));
+if(!enabled.includes("fun") && !store.get("sushi.funSeen",false)) enabled.push("fun");
+store.set("sushi.funSeen",true);
+let history = store.get("sushi.hist", []).filter(h=>CARDS.some(c=>c.name===h.name));
+
+const $ = id=>document.getElementById(id);
+const byName = n => CARDS.find(c=>c.name===n);
+const pool = ()=>CARDS.filter(c=>enabled.includes(c.cat));
+const remaining = ()=>pool().filter(c=>!history.some(h=>h.name===c.name));
+const IDLE='<div class="big">札を引いてください</div><div class="sub">引いた札のネタだけ食べられます。同じ札は二度出ません</div>';
+let busy=false;
+
+function renderLeft(){
+  const r=remaining().length, d=$("draw");
+  $("left").textContent=`山札の残り ${r} 枚`;
+  if(busy) return;
+  if(!pool().length){d.disabled=true;d.textContent="札を引く"}
+  else if(!r){d.disabled=false;d.textContent="山札を戻す"}
+  else{d.disabled=false;d.textContent=history.length?"もう一枚引く":"札を引く"}
+}
+
+function renderHist(){
+  const h=$("hist"); h.innerHTML="";
+  $("count").textContent = history.length? `（${history.length}枚）`:"";
+  if(!history.length){h.innerHTML='<li class="empty">まだ何も引いていません</li>';return}
+  [...history].reverse().forEach((c,i)=>{
+    const li=document.createElement("li");
+    li.innerHTML=`<span class="n">${history.length-i}枚目</span><span class="dot" style="background:${CATS[c.cat].color}"></span><span>${c.name}</span>`;
+    h.appendChild(li);
+  });
+}
+
+function showCard(card){
+  const n=$("fName"); n.textContent=card.name;
+  n.className="name"+(card.name.length>=6?" xlong":card.name.length>=5?" long":"");
+  $("fArt").innerHTML=card.art();
+  $("fCat").textContent=CATS[card.cat].label; $("fCat").style.background=CATS[card.cat].color;
+}
+
+function draw(){
+  if(busy||!pool().length) return;
+  const p=remaining();
+  if(!p.length){ resetAll(); return; }
+  busy=true; $("draw").disabled=true;
+  const card=p[Math.floor(Math.random()*p.length)];
+  const f=$("fuda");
+  const reveal=()=>{
+    showCard(card);
+    f.classList.add("flip");
+    setTimeout(()=>{
+      history.push({name:card.name,cat:card.cat}); store.set("sushi.hist",history); renderHist();
+      $("result").innerHTML = card.cat==="fun"
+        ? `<div class="big">お楽しみ札「${card.name}」</div><div class="sub">${card.desc}</div>`
+        : `<div class="big">「${card.name}」を注文！</div><div class="sub">${CATS[card.cat].label}の札</div>`;
+      if(!remaining().length) $("result").innerHTML+=`<div class="sub">これで山札は終わりです</div>`;
+      busy=false; renderLeft();
+    },550);
+  };
+  if(f.classList.contains("flip")){ f.classList.remove("flip"); setTimeout(reveal,600);} else reveal();
+}
+
+function renderSettings(){
+  const box=$("cats"); box.innerHTML="";
+  Object.entries(CATS).forEach(([k,v])=>{
+    const b=document.createElement("button");
+    b.className="chip"; b.id="cat-"+k; b.setAttribute("aria-pressed",enabled.includes(k));
+    b.innerHTML=`<span class="dot" style="background:${v.color}"></span>${v.label}`;
+    b.onclick=()=>{enabled=enabled.includes(k)?enabled.filter(x=>x!==k):[...enabled,k];store.set("sushi.cats",enabled);renderSettings()};
+    box.appendChild(b);
+  });
+  const p=pool();
+  $("poolInfo").textContent = p.length? `札は全部で ${p.length} 枚、残り ${remaining().length} 枚です`:"ジャンルを1つ以上選んでください";
+  $("items").textContent = p.map(c=>c.name).join("・");
+  renderLeft();
+}
+
+function resetAll(){
+  history=[];store.set("sushi.hist",history);renderHist();$("fuda").classList.remove("flip");
+  $("result").innerHTML=IDLE; $("resetBox").hidden=true; renderLeft();
+}
+$("draw").onclick=draw;
+$("reset").onclick=()=>{ if(history.length) $("resetBox").hidden=false; };
+$("resetNo").onclick=()=>{$("resetBox").hidden=true};
+$("resetYes").onclick=resetAll;
+$("openSettings").onclick=()=>{renderSettings();$("sheet").hidden=false};
+$("closeSettings").onclick=()=>{$("sheet").hidden=true};
+$("sheet").onclick=e=>{if(e.target.id==="sheet")$("sheet").hidden=true};
+
+// 起動時：最後に引いた札があれば表向きで表示
+$("result").innerHTML=IDLE;
+if(history.length){
+  const last=byName(history[history.length-1].name);
+  showCard(last); $("fuda").classList.add("flip");
+  $("result").innerHTML=`<div class="big">前回の続きから</div><div class="sub">最後に引いたのは「${last.name}」</div>`;
+}
+renderHist(); renderSettings();
+</script>
+</body>
+</html>
