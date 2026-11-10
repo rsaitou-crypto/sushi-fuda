@@ -46,10 +46,11 @@ h1{font-family:var(--f-brush);font-size:26px;margin:0;font-weight:400;letter-spa
 .iconbtn:focus-visible,.draw:focus-visible,.chip:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 
 /* 木札 */
-.stage{display:flex;justify-content:center;perspective:900px;min-height:380px;align-items:center}
-.fuda{width:170px;height:364px;position:relative;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
-.fuda.flip{transform:rotateY(180deg)}
-.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:6px;
+.stage{display:flex;justify-content:center;min-height:380px;align-items:center}
+.fuda{width:170px;height:364px;position:relative;transition:transform .22s ease-in-out}
+.fuda.shrink{transform:scaleX(0)}
+.fuda.flip .back,.fuda:not(.flip) .front{display:none}
+.face{position:absolute;inset:0;border-radius:6px;
   background:
     repeating-linear-gradient(90deg,rgba(120,80,30,.07) 0 2px,transparent 2px 9px),
     linear-gradient(180deg,var(--wood),color-mix(in srgb,var(--wood) 85%,var(--wood-edge)));
@@ -58,9 +59,9 @@ h1{font-family:var(--f-brush);font-size:26px;margin:0;font-weight:400;letter-spa
 .face::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--wood-edge);opacity:.7;flex:none}
 .back{justify-content:center}
 .back .mark{font-family:var(--f-brush);font-size:44px;writing-mode:vertical-rl;letter-spacing:.2em;margin-top:-18px}
-.front{transform:rotateY(180deg)}
-.front .name{font-family:var(--f-brush);writing-mode:vertical-rl;font-size:38px;line-height:1;letter-spacing:.06em;
-  flex:1;min-height:0;display:flex;align-items:center;white-space:nowrap}
+.front .namebox{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.front .name{font-family:var(--f-brush);writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;font-size:38px;line-height:1.2;letter-spacing:.06em;
+  white-space:nowrap;padding:0 4px}
 .front .name.long{font-size:31px}
 .front .name.xlong{font-size:25px}
 .front .art{width:136px;height:91px;flex:none;display:flex;align-items:center;justify-content:center}
@@ -109,7 +110,7 @@ h1{font-family:var(--f-brush);font-size:26px;margin:0;font-weight:400;letter-spa
   <div class="stage">
     <div class="fuda" id="fuda" aria-live="polite">
       <div class="face back"><div class="mark">御品書</div></div>
-      <div class="face front"><div class="name" id="fName">中トロ</div><div class="art" id="fArt"></div><div class="cat" id="fCat">赤身</div></div>
+      <div class="face front"><div class="namebox"><div class="name" id="fName">中トロ</div></div><div class="art" id="fArt"></div><div class="cat" id="fCat">赤身</div></div>
     </div>
   </div>
 
@@ -327,6 +328,7 @@ const pool = ()=>CARDS.filter(c=>enabled.includes(c.cat));
 const remaining = ()=>pool().filter(c=>!history.some(h=>h.name===c.name));
 const IDLE='<div class="big">札を引いてください</div><div class="sub">引いた札のネタだけ食べられます。同じ札は二度出ません</div>';
 let busy=false;
+const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function renderLeft(){
   const r=remaining().length, d=$("draw");
@@ -362,9 +364,11 @@ function draw(){
   busy=true; $("draw").disabled=true;
   const card=p[Math.floor(Math.random()*p.length)];
   const f=$("fuda");
-  const reveal=()=>{
+  f.classList.add("shrink");
+  setTimeout(()=>{
     showCard(card);
     f.classList.add("flip");
+    f.classList.remove("shrink");
     setTimeout(()=>{
       history.push({name:card.name,cat:card.cat}); store.set("sushi.hist",history); renderHist();
       $("result").innerHTML = card.cat==="fun"
@@ -372,9 +376,8 @@ function draw(){
         : `<div class="big">「${card.name}」を注文！</div><div class="sub">${CATS[card.cat].label}の札</div>`;
       if(!remaining().length) $("result").innerHTML+=`<div class="sub">これで山札は終わりです</div>`;
       busy=false; renderLeft();
-    },550);
-  };
-  if(f.classList.contains("flip")){ f.classList.remove("flip"); setTimeout(reveal,600);} else reveal();
+    },240);
+  },reduced?0:240);
 }
 
 function renderSettings(){
