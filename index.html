@@ -98,6 +98,36 @@ h1{font-family:var(--f-brush);font-size:26px;margin:0;font-weight:400;letter-spa
 .chip .dot{width:8px;height:8px;border-radius:2px}
 .note{font-size:12px;color:var(--muted);margin:0}
 .items{font-size:12px;color:var(--muted);line-height:1.7}
+.front .name.xxlong{font-size:21px}
+.front .rar{font-size:11px;font-weight:700;color:#5a3a00;background:linear-gradient(135deg,#f6dd8a,#d9a92e);padding:2px 8px;border-radius:3px;letter-spacing:.1em;flex:none}
+.front .rar.r3{color:#fff;background:linear-gradient(135deg,#c0392b,#e0a020)}
+.sec{display:flex;flex-direction:column;gap:10px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.switch{width:52px;height:30px;border-radius:999px;border:0;background:var(--line);position:relative;cursor:pointer;flex:none;padding:0}
+.switch span{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+.switch[aria-checked="true"]{background:var(--accent)}
+.switch[aria-checked="true"] span{left:25px}
+.switch:focus-visible,select:focus-visible,input:focus-visible,.addbtn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+details summary{cursor:pointer;font-size:13px;color:var(--accent);font-weight:700;padding:4px 0}
+details[open]{display:flex;flex-direction:column;gap:10px}
+.rarlist{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;font-size:14px}
+.rarlist .nm{display:flex;align-items:center;gap:8px;min-width:0}
+select,input[type=text]{font:inherit;font-size:16px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+.rarlist select{width:auto;font-size:14px;padding:5px 8px}
+.addform{display:flex;gap:12px;align-items:flex-start}
+.addform .preview{width:96px;height:64px;flex:none;border-radius:6px;background:var(--wood);border:1.5px solid var(--wood-edge);padding:4px}
+.addform .preview svg{width:100%;height:100%;display:block}
+.fields{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.fields label,.lbl{font-size:12px;color:var(--muted);font-weight:700}
+.fields label:not(:first-child){margin-top:6px}
+.fieldset{display:flex;flex-direction:column;gap:6px}
+.swatch{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);cursor:pointer;padding:0}
+.swatch[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--panel) inset}
+.addbtn{border:1.5px solid var(--accent);background:transparent;color:var(--accent);border-radius:10px;padding:12px;font:inherit;font-weight:700;cursor:pointer}
+.err{color:var(--c-aka)}
+.err.ok{color:var(--accent)}
+.del{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:6px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer;margin-left:auto}
+.del.confirm{border-color:var(--c-aka);color:var(--c-aka)}
 @media (prefers-reduced-motion:reduce){.fuda{transition:none}}
 </style>
 
@@ -110,7 +140,7 @@ h1{font-family:var(--f-brush);font-size:26px;margin:0;font-weight:400;letter-spa
   <div class="stage">
     <div class="fuda" id="fuda" aria-live="polite">
       <div class="face back"><div class="mark">御品書</div></div>
-      <div class="face front"><div class="namebox"><div class="name" id="fName">中トロ</div></div><div class="art" id="fArt"></div><div class="cat" id="fCat">赤身</div></div>
+      <div class="face front"><div class="namebox"><div class="name" id="fName">中トロ</div></div><div class="art" id="fArt"></div><div class="rar" id="fRar" hidden></div><div class="cat" id="fCat">赤身</div></div>
     </div>
   </div>
 
@@ -132,10 +162,50 @@ h1{font-family:var(--f-brush);font-size:26px;margin:0;font-weight:400;letter-spa
 
 <div class="sheet" id="sheet" hidden>
   <div class="sheet-in" role="dialog" aria-label="札の設定">
-    <h3>札に入れるジャンル</h3>
-    <div class="chips" id="cats"></div>
-    <p class="note" id="poolInfo"></p>
-    <div class="items" id="items"></div>
+    <section class="sec">
+      <h3>札に入れるジャンル</h3>
+      <div class="chips" id="cats"></div>
+      <p class="note" id="poolInfo"></p>
+      <div class="items" id="items"></div>
+    </section>
+
+    <section class="sec">
+      <div class="row">
+        <h3>レア度</h3>
+        <button class="switch" id="rarOn" role="switch" aria-checked="false"><span></span></button>
+      </div>
+      <p class="note">オンにすると、大トロやうには出にくく、がりやお茶は出やすくなります。オフのときはどの札も同じ確率です。</p>
+      <details id="rarDetails">
+        <summary>札ごとのレア度を変える</summary>
+        <p class="note">出やすさの目安：よく出る＝ふつうの約1.7倍、レア＝半分、激レア＝6分の1</p>
+        <div class="rarlist" id="rarList"></div>
+        <button class="linkbtn" id="rarReset">レア度を最初の設定に戻す</button>
+      </details>
+    </section>
+
+    <section class="sec">
+      <h3>ネタを追加する</h3>
+      <div class="addform">
+        <div class="preview" id="addPreview"></div>
+        <div class="fields">
+          <label for="newName">ネタの名前（8文字まで）</label>
+          <input id="newName" type="text" maxlength="8" placeholder="例：のどぐろ" autocomplete="off">
+          <label for="newCat">ジャンル</label>
+          <select id="newCat"></select>
+          <label for="newRar">レア度</label>
+          <select id="newRar"></select>
+        </div>
+      </div>
+      <div class="fieldset"><span class="lbl">絵の形</span><div class="chips" id="newShape"></div></div>
+      <div class="fieldset"><span class="lbl">色</span><div class="chips" id="newColor"></div></div>
+      <p class="note err" id="addMsg" aria-live="polite"></p>
+      <button class="addbtn" id="addBtn">この札を追加する</button>
+      <div id="customBox" hidden>
+        <h3 style="margin-top:6px">追加したネタ</h3>
+        <ul class="hist" id="customList"></ul>
+      </div>
+    </section>
+
     <button class="draw" id="closeSettings" style="font-size:18px;padding:14px">閉じる</button>
   </div>
 </div>
@@ -251,7 +321,7 @@ const CATS = {
   side:{label:"サイド",color:"var(--c-side)"},
   fun:{label:"お楽しみ",color:"var(--c-fun)"},
 };
-const CARDS = [
+const BASE = [
   ["赤身","aka",()=>nigiri({c:"#b8202a"})],
   ["中トロ","aka",()=>nigiri({c:"#e0606a",stripes:4})],
   ["大トロ","aka",()=>nigiri({c:"#f2a3a6",stripes:7})],
@@ -312,27 +382,68 @@ const CARDS = [
   ["次の人が食べる","fun",()=>FUN.next,"次に注文するネタは、隣の人が食べます"],
 ].map(([name,cat,art,desc])=>({name,cat,art,desc}));
 
+/* 自分で追加するネタの絵 */
+const SHAPES = {
+  nigiri:{label:"握り", art:c=>nigiri({c})},
+  gunkan:{label:"軍艦", art:c=>gunkan(mound(c))},
+  maki:{label:"巻物", art:c=>maki((x,y)=>`<circle cx="${x}" cy="${y}" r="8" fill="${c}"/>`)},
+  shiru:{label:"汁物", art:c=>svg(`<path d="M16 34 Q60 96 104 34 Z" fill="#7a1f17" stroke="#4a110c" stroke-width="1.5"/><ellipse cx="60" cy="34" rx="44" ry="10" fill="${c}" stroke="#4a110c" stroke-width="1.5"/>`)},
+  sara:{label:"小皿", art:c=>svg(`<ellipse cx="60" cy="62" rx="46" ry="11" fill="#e6e1d6" stroke="#c9c1b0"/><ellipse cx="60" cy="50" rx="26" ry="16" fill="${c}" stroke="rgba(0,0,0,.2)"/><path d="M44 44 Q60 36 76 44" stroke="#fff" stroke-opacity=".5" stroke-width="2" fill="none"/>`)},
+};
+const SWATCHES = ["#b8202a","#f0a0a8","#f4874b","#f4f1ec","#f5c842","#7fb24a","#8a5a2a","#6a3a6a"];
+
+/* レア度：0=よく出る 1=ふつう 2=レア 3=激レア。数字は出やすさの重み */
+const RARITY = [
+  {label:"よく出る",w:10},{label:"ふつう",w:6},{label:"レア",w:3},{label:"激レア",w:1},
+];
+const DEFAULT_RARITY = {
+  "大トロ":3,"うに":3,"ボタンえび":3,"好きなネタ":3,
+  "中トロ":2,"炙りサーモン":2,"かんぱち":2,"真鯛":2,"えんがわ":2,"赤貝":2,"ほっき貝":2,"みる貝":2,
+  "甘えび":2,"いくら":2,"かにみそ":2,"穴子":2,"うなぎ":2,"茶碗蒸し":2,"もう一枚":2,"隣と交換":2,"次の人が食べる":2,
+  "がり":0,"お茶":0,"味噌汁":0,"玉子":0,"かっぱ巻":0,"コーン":0,"ツナマヨ":0,
+};
+
 /* ===== アプリ本体 ===== */
 const store = {
   get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 };
+const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
 let enabled = store.get("sushi.cats", Object.keys(CATS));
 if(!enabled.includes("fun") && !store.get("sushi.funSeen",false)) enabled.push("fun");
 store.set("sushi.funSeen",true);
+let custom = store.get("sushi.custom", []);          // [{name,cat,shape,color,rar}]
+let rarOn = store.get("sushi.rarOn", false);
+let rarOverride = store.get("sushi.rarity", {});     // {name: level}
+
+let CARDS = [];
+function buildCards(){
+  CARDS = BASE.concat(custom.map(c=>({name:c.name,cat:c.cat,custom:true,art:()=>SHAPES[c.shape].art(c.color)})));
+}
+buildCards();
 let history = store.get("sushi.hist", []).filter(h=>CARDS.some(c=>c.name===h.name));
 
 const $ = id=>document.getElementById(id);
 const byName = n => CARDS.find(c=>c.name===n);
+const rarityOf = c => rarOverride[c.name] ?? (c.custom ? (custom.find(x=>x.name===c.name)?.rar ?? 1) : (DEFAULT_RARITY[c.name] ?? 1));
 const pool = ()=>CARDS.filter(c=>enabled.includes(c.cat));
 const remaining = ()=>pool().filter(c=>!history.some(h=>h.name===c.name));
 const IDLE='<div class="big">札を引いてください</div><div class="sub">引いた札のネタだけ食べられます。同じ札は二度出ません</div>';
 let busy=false;
 const reduced = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+function pick(list){
+  if(!rarOn) return list[Math.floor(Math.random()*list.length)];
+  const ws=list.map(c=>RARITY[rarityOf(c)].w), total=ws.reduce((a,b)=>a+b,0);
+  let r=Math.random()*total;
+  for(let i=0;i<list.length;i++){ r-=ws[i]; if(r<0) return list[i]; }
+  return list[list.length-1];
+}
+
 function renderLeft(){
   const r=remaining().length, d=$("draw");
-  $("left").textContent=`山札の残り ${r} 枚`;
+  $("left").textContent=`山札の残り ${r} 枚`+(rarOn?"・レア度オン":"");
   if(busy) return;
   if(!pool().length){d.disabled=true;d.textContent="札を引く"}
   else if(!r){d.disabled=false;d.textContent="山札を戻す"}
@@ -345,16 +456,21 @@ function renderHist(){
   if(!history.length){h.innerHTML='<li class="empty">まだ何も引いていません</li>';return}
   [...history].reverse().forEach((c,i)=>{
     const li=document.createElement("li");
-    li.innerHTML=`<span class="n">${history.length-i}枚目</span><span class="dot" style="background:${CATS[c.cat].color}"></span><span>${c.name}</span>`;
+    li.innerHTML=`<span class="n">${history.length-i}枚目</span><span class="dot" style="background:${CATS[c.cat].color}"></span><span>${esc(c.name)}</span>`;
     h.appendChild(li);
   });
 }
 
 function showCard(card){
   const n=$("fName"); n.textContent=card.name;
-  n.className="name"+(card.name.length>=6?" xlong":card.name.length>=5?" long":"");
+  const L=card.name.length;
+  n.className="name"+(L>=8?" xxlong":L>=6?" xlong":L>=5?" long":"");
   $("fArt").innerHTML=card.art();
   $("fCat").textContent=CATS[card.cat].label; $("fCat").style.background=CATS[card.cat].color;
+  const lv=rarityOf(card), r=$("fRar");
+  r.hidden = !(rarOn && lv>=2);
+  r.textContent = lv===3?"★激レア★":"レア";
+  r.className="rar"+(lv===3?" r3":"");
 }
 
 function draw(){
@@ -362,7 +478,7 @@ function draw(){
   const p=remaining();
   if(!p.length){ resetAll(); return; }
   busy=true; $("draw").disabled=true;
-  const card=p[Math.floor(Math.random()*p.length)];
+  const card=pick(p);
   const f=$("fuda");
   f.classList.add("shrink");
   setTimeout(()=>{
@@ -371,16 +487,18 @@ function draw(){
     f.classList.remove("shrink");
     setTimeout(()=>{
       history.push({name:card.name,cat:card.cat}); store.set("sushi.hist",history); renderHist();
+      const lv=rarityOf(card), tag = rarOn&&lv===3?"激レア！":rarOn&&lv===2?"レア！":"";
       $("result").innerHTML = card.cat==="fun"
-        ? `<div class="big">お楽しみ札「${card.name}」</div><div class="sub">${card.desc}</div>`
-        : `<div class="big">「${card.name}」を注文！</div><div class="sub">${CATS[card.cat].label}の札</div>`;
+        ? `<div class="big">${tag}お楽しみ札「${esc(card.name)}」</div><div class="sub">${card.desc}</div>`
+        : `<div class="big">${tag}「${esc(card.name)}」を注文！</div><div class="sub">${CATS[card.cat].label}の札</div>`;
       if(!remaining().length) $("result").innerHTML+=`<div class="sub">これで山札は終わりです</div>`;
       busy=false; renderLeft();
     },240);
   },reduced?0:240);
 }
 
-function renderSettings(){
+/* --- 設定：ジャンル --- */
+function renderCats(){
   const box=$("cats"); box.innerHTML="";
   Object.entries(CATS).forEach(([k,v])=>{
     const b=document.createElement("button");
@@ -392,8 +510,81 @@ function renderSettings(){
   const p=pool();
   $("poolInfo").textContent = p.length? `札は全部で ${p.length} 枚、残り ${remaining().length} 枚です`:"ジャンルを1つ以上選んでください";
   $("items").textContent = p.map(c=>c.name).join("・");
-  renderLeft();
 }
+
+/* --- 設定：レア度 --- */
+const rarOptions = sel => RARITY.map((r,i)=>`<option value="${i}"${i===sel?" selected":""}>${r.label}</option>`).join("");
+function renderRarity(){
+  $("rarOn").setAttribute("aria-checked",rarOn);
+  const box=$("rarList"); box.innerHTML="";
+  CARDS.forEach((c,i)=>{
+    const nm=document.createElement("div"); nm.className="nm";
+    nm.innerHTML=`<span class="dot" style="width:8px;height:8px;border-radius:2px;flex:none;background:${CATS[c.cat].color}"></span><span>${esc(c.name)}</span>`;
+    const s=document.createElement("select"); s.id="rar-"+i; s.setAttribute("aria-label",c.name+"のレア度");
+    s.innerHTML=rarOptions(rarityOf(c));
+    s.onchange=()=>{rarOverride[c.name]=+s.value;store.set("sushi.rarity",rarOverride)};
+    box.append(nm,s);
+  });
+}
+$("rarOn").onclick=()=>{rarOn=!rarOn;store.set("sushi.rarOn",rarOn);renderRarity();renderLeft()};
+$("rarReset").onclick=()=>{rarOverride={};store.set("sushi.rarity",rarOverride);renderRarity()};
+
+/* --- 設定：ネタの追加 --- */
+let addShape="nigiri", addColor=SWATCHES[0];
+function renderAddForm(){
+  const sh=$("newShape"); sh.innerHTML="";
+  Object.entries(SHAPES).forEach(([k,v])=>{
+    const b=document.createElement("button"); b.className="chip"; b.id="shape-"+k; b.textContent=v.label;
+    b.setAttribute("aria-pressed",k===addShape);
+    b.onclick=()=>{addShape=k;renderAddForm()};
+    sh.appendChild(b);
+  });
+  const co=$("newColor"); co.innerHTML="";
+  SWATCHES.forEach((c,i)=>{
+    const b=document.createElement("button"); b.className="swatch"; b.id="color-"+i; b.style.background=c;
+    b.setAttribute("aria-label","色"+(i+1)); b.setAttribute("aria-pressed",c===addColor);
+    b.onclick=()=>{addColor=c;renderAddForm()};
+    co.appendChild(b);
+  });
+  $("addPreview").innerHTML=SHAPES[addShape].art(addColor);
+}
+// ジャンル・レア度の選択は再描画で消えないよう、初回だけ作る
+function initAddForm(){
+  $("newCat").innerHTML=Object.entries(CATS).filter(([k])=>k!=="fun").map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  $("newRar").innerHTML=rarOptions(1);
+  renderAddForm();
+}
+$("addBtn").onclick=()=>{
+  const name=$("newName").value.trim(), msg=$("addMsg");
+  msg.className="note err";
+  if(!name){msg.textContent="ネタの名前を入れてください";return}
+  if(CARDS.some(c=>c.name===name)){msg.textContent=`「${name}」はもうあります。別の名前にしてください`;return}
+  const item={name,cat:$("newCat").value,shape:addShape,color:addColor,rar:+$("newRar").value};
+  custom.push(item); store.set("sushi.custom",custom);
+  if(!enabled.includes(item.cat)){enabled.push(item.cat);store.set("sushi.cats",enabled)}
+  buildCards();
+  $("newName").value="";
+  msg.className="note err ok"; msg.textContent=`「${name}」を山札に追加しました`;
+  renderSettings();
+};
+function renderCustom(){
+  $("customBox").hidden=!custom.length;
+  const ul=$("customList"); ul.innerHTML="";
+  custom.forEach((c,i)=>{
+    const li=document.createElement("li");
+    li.innerHTML=`<span class="dot" style="background:${CATS[c.cat].color}"></span><span>${esc(c.name)}</span><span class="note">${CATS[c.cat].label}</span>`;
+    const b=document.createElement("button"); b.className="del"; b.id="del-"+i; b.textContent="削除";
+    b.onclick=()=>{
+      if(!b.classList.contains("confirm")){b.classList.add("confirm");b.textContent="本当に削除";return}
+      custom=custom.filter(x=>x.name!==c.name); store.set("sushi.custom",custom);
+      delete rarOverride[c.name]; store.set("sushi.rarity",rarOverride);
+      buildCards(); renderSettings();
+    };
+    li.appendChild(b); ul.appendChild(li);
+  });
+}
+
+function renderSettings(){ renderCats(); renderRarity(); renderCustom(); renderLeft(); }
 
 function resetAll(){
   history=[];store.set("sushi.hist",history);renderHist();$("fuda").classList.remove("flip");
@@ -403,7 +594,7 @@ $("draw").onclick=draw;
 $("reset").onclick=()=>{ if(history.length) $("resetBox").hidden=false; };
 $("resetNo").onclick=()=>{$("resetBox").hidden=true};
 $("resetYes").onclick=resetAll;
-$("openSettings").onclick=()=>{renderSettings();$("sheet").hidden=false};
+$("openSettings").onclick=()=>{renderSettings();$("addMsg").textContent="";$("sheet").hidden=false};
 $("closeSettings").onclick=()=>{$("sheet").hidden=true};
 $("sheet").onclick=e=>{if(e.target.id==="sheet")$("sheet").hidden=true};
 
@@ -412,8 +603,9 @@ $("result").innerHTML=IDLE;
 if(history.length){
   const last=byName(history[history.length-1].name);
   showCard(last); $("fuda").classList.add("flip");
-  $("result").innerHTML=`<div class="big">前回の続きから</div><div class="sub">最後に引いたのは「${last.name}」</div>`;
+  $("result").innerHTML=`<div class="big">前回の続きから</div><div class="sub">最後に引いたのは「${esc(last.name)}」</div>`;
 }
+initAddForm();
 renderHist(); renderSettings();
 </script>
 </body>
